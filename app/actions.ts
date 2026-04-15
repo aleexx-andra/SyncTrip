@@ -48,15 +48,22 @@ const sugestiiBagajeRezerva: any = {
 
 
 
-export async function genereazaPlanAI(numeVacanta: string) {
+export async function genereazaPlanAI(numeVacanta: string, dataSelectata: string, activitatiExistente: string[]) {
   const oras = numeVacanta.toUpperCase().trim();
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
     
-    const prompt = `Ești un ghid turistic minimalist. Generează un itinerar scurt pentru ${oras}.
-    Vreau exact 4 elemente în listă:
-    - Primele 3 sunt activități principale cu ORE FIXE (ex: 09:00, 13:00, 19:00).
-    - Al 4-lea element are ora "EXTRA" și conține sugestii rapide.
+    // Adăugăm contextul pentru a evita repetițiile
+    const listaRepetitii = activitatiExistente.length > 0 
+      ? `NU include următoarele activități (deja planificate): ${activitatiExistente.join(", ")}.` 
+      : "";
+
+    const prompt = `Ești un ghid turistic minimalist. Generează un itinerar scurt pentru orașul ${oras}, special pentru data de ${dataSelectata}.
+    ${listaRepetitii}
+    
+    Vreau exact 5 elemente în listă:
+    - Primele 4 sunt activități principale cu ORE FIXE.
+    - Al 5-lea element are ora "EXTRA" și conține sugestii rapide.
 
     Pentru activitățile normale, folosește EXACT acest format în descriere:
     Titlu Activitate
@@ -81,6 +88,8 @@ export async function genereazaPlanAI(numeVacanta: string) {
     return [];
   }
 }
+
+
 
 export async function genereazaBagajAI(numeVacanta: string, dataSosire: string, numarZile: number) {
   if (!process.env.GOOGLE_API_KEY) throw new Error("Cheia API lipsește.");
