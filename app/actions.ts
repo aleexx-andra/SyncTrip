@@ -3,8 +3,6 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "");
 
-
-
 // Baza de date de rezervă pentru Plan 
 const sugestiiRezerva: any = {
   "PARIS": [
@@ -23,8 +21,6 @@ const sugestiiRezerva: any = {
     { "ora": "18:00", "descriere": "Cină în Shinjuku Golden Gai" }
   ]
 };
-
-
 
 // REZERVĂ BAGAJE
 const sugestiiBagajeRezerva: any = {
@@ -46,9 +42,6 @@ const sugestiiBagajeRezerva: any = {
   ]
 };
 
-
-
-
 // ✅ FUNCȚIE NOUĂ PENTRU VREME (Helper)
 async function getVremeInfo(oras: string, dataISO: string) {
   try {
@@ -67,13 +60,8 @@ async function getVremeInfo(oras: string, dataISO: string) {
   } catch (e) { return "vreme imprevizibilă"; }
 }
 
-
-
-
 export async function genereazaPlanAI(numeVacanta: string, dataSelectata: string, activitatiExistente: string[]) {
   const oras = numeVacanta.toUpperCase().trim();
-  
-  // ✅ Adăugăm contextul meteo
   const prognoza = await getVremeInfo(numeVacanta, dataSelectata);
 
   try {
@@ -83,7 +71,6 @@ export async function genereazaPlanAI(numeVacanta: string, dataSelectata: string
       ? `NU include următoarele activități (deja planificate): ${activitatiExistente.join(", ")}.` 
       : "";
 
-    // ✅ Am inclus prognoza în prompt
     const prompt = `Ești un ghid turistic minimalist. Generează un itinerar scurt pentru orașul ${oras}, special pentru data de ${dataSelectata}.
     PROGNOZA METEO: ${prognoza}. 
     IMPORTANT: Dacă plouă, prioritizează activități la interior.
@@ -117,16 +104,13 @@ export async function genereazaPlanAI(numeVacanta: string, dataSelectata: string
   }
 }
 
-
-
-
 export async function genereazaBagajAI(numeVacanta: string, dataSosire: string, numarZile: number) {
   if (!process.env.GOOGLE_API_KEY) throw new Error("Cheia API lipsește.");
   const data = dataSosire ? new Date(dataSosire) : new Date();
   const luna = data.toLocaleString('ro-RO', { month: 'long' });
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
     const prompt = `Ești un expert în travel packing. Pentru o vacanță de ${numarZile} ZILE în ${numeVacanta} (luna ${luna}), generează o listă de minim 35 de obiecte.
     
@@ -153,5 +137,38 @@ export async function genereazaBagajAI(numeVacanta: string, dataSosire: string, 
       { obiect: "Pașaport", categorie: "DOCUMENTE" },
       { obiect: "Umbrelă", categorie: "ACCESORII UTILE" }
     ];
+  }
+}
+
+// ✅ FUNCȚIE NOUĂ: GENEREAZĂ TRANSPORT CU AI
+export async function genereazaTransportAI(oras: string) {
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+    
+    const prompt = `Ești un asistent de călătorie digital. Pentru orașul ${oras}, caută și oferă-mi:
+    1. Două companii de taxi locale, sigure, cu numele lor și numărul de telefon oficial (format internațional).
+    2. O listă cu principalele aplicații de transport (ride-sharing) disponibile acolo (ex: Uber, Bolt, Grab, FreeNow etc.).
+
+    Returnează STRICT un obiect JSON valid, fără alte texte, în acest format:
+    {
+      "taxis": [
+        {"nume": "Nume Taxi 1", "nr": "+00 000 000 000"},
+        {"nume": "Nume Taxi 2", "nr": "+00 000 000 000"}
+      ],
+      "apps": ["Aplicația 1", "Aplicația 2", "Aplicația 3"]
+    }`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+    const jsonCurat = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    return JSON.parse(jsonCurat);
+  } catch (error) {
+    console.error("Eroare AI Transport:", error);
+    // Rezervă în caz de eroare
+    return {
+      taxis: [{ nume: "Taxi Local", nr: "Întreabă la recepție" }],
+      apps: ["Uber", "Bolt"]
+    };
   }
 }
